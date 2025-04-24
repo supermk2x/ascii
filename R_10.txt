@@ -1,0 +1,60 @@
+# Step 1: Install and Load Necessary Libraries
+library(rtweet)
+library(tidyverse)
+library(DBI)
+library(RSQLite)
+library(sentimentr)
+
+# Step 2: Set up Twitter API Credentials (Get these from Twitter Developer Portal)
+twitter_token <- create_token(
+  app = "your_app_name",  # Replace with your app name
+  consumer_key = "your_consumer_key",  # Replace with your consumer key
+  consumer_secret = "your_consumer_secret",  # Replace with your consumer secret
+  access_token = "your_access_token",  # Replace with your access token
+  access_secret = "your_access_secret"  # Replace with your access secret
+)
+
+# Step 3: Fetch Tweets from Twitter
+tweets_data <- search_tweets(
+  "Nike",  # Replace with any hashtag or keyword you're interested in
+  n = 1000,  # Number of tweets to fetch
+  lang = "en",  # Language filter
+  include_rts = FALSE  # Exclude retweets
+)
+
+# Step 4: Data Cleaning
+cleaned_data <- tweets_data %>%
+  select(created_at, screen_name, text, favorite_count, retweet_count) %>%  # Select relevant columns
+  filter(!is.na(text)) %>%  # Remove rows with missing text
+  mutate(
+    text = str_replace_all(text, "http\\S+|www\\S+", ""),  # Remove URLs
+    text = str_replace_all(text, "@\\S+", ""),  # Remove mentions
+    text = str_replace_all(text, "#\\S+", ""),  # Remove hashtags
+    text = str_replace_all(text, "[^[:alnum:] ]", "")  # Remove special characters
+  )
+
+# Step 5: Filter Data for Business Insights
+filtered_data <- cleaned_data %>%
+  filter(favorite_count > 50, retweet_count > 20)  # Only keep tweets with more than 50 likes and 20 retweets
+
+# Step 6: Sentiment Analysis
+sentiment_data <- sentiment_by(filtered_data$text)
+filtered_data$sentiment_score <- sentiment_data$ave_sentiment  # Add sentiment score to the data
+
+# Step 7: Save Cleaned and Filtered Data
+
+# Save as CSV
+write.csv(filtered_data, "cleaned_twitter_data.csv", row.names = FALSE)
+
+# Step 8: Store Data in SQLite Database
+con <- dbConnect(RSQLite::SQLite(), "social_media_data.db")
+
+# Write filtered data to SQLite database (overwrite existing table if it exists)
+dbWriteTable(con, "tweets", filtered_data, overwrite = TRUE, row.names = FALSE)
+
+# Close the database connection
+dbDisconnect(con)
+
+# Step 9: Print Summary of Data
+cat("Data has been successfully cleaned, filtered, and stored.\n")
+cat("Number of tweets after filtering: ", nrow(filtered_data), "\n")
