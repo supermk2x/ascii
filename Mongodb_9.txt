@@ -1,0 +1,78 @@
+import tweepy
+import pandas as pd
+import re
+from textblob import TextBlob
+from pymongo import MongoClient
+
+# Step 1: Set up Twitter API credentials
+consumer_key = 'your_consumer_key'
+consumer_secret = 'your_consumer_secret'
+access_token = 'your_access_token'
+access_token_secret = 'your_access_token_secret'
+
+# Authenticate with the Twitter API
+auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+auth.set_access_token(access_token, access_token_secret)
+
+api = tweepy.API(auth, wait_on_rate_limit=True)
+
+# Step 2: Fetch tweets (search for tweets containing the keyword 'Nike')
+tweets = tweepy.Cursor(api.search_tweets, q="Nike", lang="en", tweet_mode="extended").items(1000)
+
+# Step 3: Create an empty list to store tweet data
+tweet_data = []
+
+# Step 4: Process each tweet
+for tweet in tweets:
+    tweet_info = {
+        'created_at': tweet.created_at,
+        'user': tweet.user.screen_name,
+        'text': tweet.full_text,
+        'favorite_count': tweet.favorite_count,
+        'retweet_count': tweet.retweet_count,
+        'location': tweet.user.location,
+        'sentiment': TextBlob(tweet.full_text).sentiment.polarity  # Sentiment analysis
+    }
+    tweet_data.append(tweet_info)
+
+# Step 5: Convert list of tweets into a Pandas DataFrame
+df = pd.DataFrame(tweet_data)
+
+# Step 6: Data Cleaning - Remove URLs, mentions, special characters, etc.
+def clean_text(text):
+    # Remove URLs
+    text = re.sub(r'http\S+|www\S+', '', text)
+    # Remove mentions
+    text = re.sub(r'@\w+', '', text)
+    # Remove hashtags
+    text = re.sub(r'#\w+', '', text)
+    # Remove special characters and numbers
+    text = re.sub(r'[^A-Za-z\s]+', '', text)
+    return text
+
+df['cleaned_text'] = df['text'].apply(clean_text)
+
+# Step 7: Filter tweets with more than 50 likes and 20 retweets
+filtered_df = df[(df['favorite_count'] > 50) & (df['retweet_count'] > 20)]
+
+# Step 8: Connect to MongoDB
+client = MongoClient('mongodb://localhost:27017/')  # Default MongoDB URI
+db = client['social_media_data']  # Database name
+collection = db['tweets']  # Collection name
+
+# Step 9: Store the data in MongoDB
+# Convert the filtered DataFrame to a list of dictionaries and insert into MongoDB
+tweets_to_insert = filtered_df.to_dict(orient='records')
+collection.insert_many(tweets_to_insert)
+
+# Step 10: Confirm storage
+print(f"Data has been successfully stored in MongoDB. Total number of tweets after filtering: {filtered_df.shape[0]}")
+
+# Step 11: (Optional) Retrieve and display data from MongoDB (Example query)
+stored_tweets = collection.find()
+
+# Display the first 5 stored tweets
+for idx, tweet in enumerate(stored_tweets):
+    if idx < 5:
+        print(f"\nTweet {idx+1}:")
+        print(tweet)
