@@ -1,0 +1,44 @@
+# 📦 Required Libraries
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
+from bs4 import BeautifulSoup
+import time
+
+# ⚙️ Chrome Options
+chrome_options = Options()
+chrome_options.add_argument("--disable-notifications")  # Notifications band
+chrome_options.add_argument("--start-maximized")        # Full screen
+
+# 🚀 Start Chrome Driver
+driver = webdriver.Chrome(
+    service=Service(ChromeDriverManager().install()),
+    options=chrome_options
+)
+
+# 🌐 Facebook Public Page URL (change karo agar chaho)
+url = "https://www.facebook.com/nike"
+driver.get(url)
+time.sleep(5)  # Page load hone do
+
+# 🔄 Scroll to load more posts
+for _ in range(3):  # zyada scroll chahiye toh number badhao
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    time.sleep(3)
+
+# 🧠 Parse HTML with BeautifulSoup
+soup = BeautifulSoup(driver.page_source, "html.parser")
+
+# 📤 Extract posts
+posts = soup.find_all("div", {"data-ad-preview": "message"})
+
+# 🖨️ Print posts in terminal
+if posts:
+    for i, post in enumerate(posts):
+        print(f"\n🔹 Post {i+1}:\n{post.get_text(strip=True)}")
+else:
+    print("\n❌ No posts found. Facebook structure might have changed.")
+
+# ❌ Close the browser
+driver.quit()
