@@ -1,0 +1,40 @@
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
+from bs4 import BeautifulSoup
+import time
+
+# Chrome Options
+chrome_options = Options()
+chrome_options.add_argument("--disable-notifications")
+chrome_options.add_argument("--start-maximized")
+
+# Start ChromeDriver
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+
+# LinkedIn URL (Change accordingly)
+url = "https://www.linkedin.com/in/elonmusk/"
+driver.get(url)
+time.sleep(5)
+
+# Scroll to load more posts
+for _ in range(3):  # Change the scroll count as needed
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    time.sleep(3)
+
+# Parse the page
+soup = BeautifulSoup(driver.page_source, "html.parser")
+
+# Extract posts
+posts = soup.find_all("div", {"class": "feed-shared-text__description"})
+
+# Print the posts
+if posts:
+    for i, post in enumerate(posts):
+        print(f"Post {i + 1}: {post.get_text(strip=True)}")
+else:
+    print("No posts found.")
+
+# Close the browser
+driver.quit()
