@@ -1,0 +1,151 @@
+"""
+📌 HOW TO SETUP YOUTUBE API KEY (Step-by-Step Guide)
+
+1️⃣ Go to: https://console.cloud.google.com/
+
+2️⃣ Login with Google Account (if not already)
+
+3️⃣ Create a Project:
+    - Click on 'My First Project' (top left)
+    - Click 'New Project'
+    - Give a name (e.g., YouTube Sentiment)
+    - Click 'Create'
+
+4️⃣ Enable YouTube Data API v3:
+    - In left sidebar → APIs & Services → Library
+    - Search: "YouTube Data API v3"
+    - Click → Enable
+
+5️⃣ Create API Key:
+    - Go to: APIs & Services → Credentials
+    - Click: "Create Credentials" → Select: API Key
+    - Copy the generated API key
+
+6️⃣ Paste the API key in the code below where it says: 🔑 'YOUR_API_KEY_HERE'
+"""
+
+# ------------------ CODE STARTS HERE ------------------
+
+# 📦 Import libraries
+import dash
+from dash import dcc, html
+import plotly.graph_objects as go
+import pandas as pd
+from googleapiclient.discovery import build
+from textblob import TextBlob
+
+# 🔑 STEP 1: Enter your YouTube API Key here
+api_key = 'YOUR_API_KEY_HERE'  # <-- 👈 Paste your real API key here
+
+# 🔧 Setup YouTube API client
+youtube = build('youtube', 'v3', developerKey=api_key)
+
+# 📥 Function to fetch video stats
+def fetch_video_data(video_id):
+    request = youtube.videos().list(part='snippet,statistics', id=video_id)
+    response = request.execute()
+    
+    video_info = response['items'][0]
+    title = video_info['snippet']['title']
+    views = int(video_info['statistics']['viewCount'])
+    likes = int(video_info['statistics']['likeCount'])
+    comments = int(video_info['statistics']['commentCount'])
+    
+    return title, views, likes, comments
+
+# 📥 Function to fetch comments
+def fetch_comments(video_id):
+    comments = []
+    request = youtube.commentThreads().list(
+        part='snippet',
+        videoId=video_id,
+        textFormat='plainText',
+        maxResults=100
+    )
+    response = request.execute()
+    
+    for item in response['items']:
+        comment = item['snippet']['topLevelComment']['snippet']['textDisplay']
+        comments.append(comment)
+        
+    return comments
+
+# 💬 Function to perform sentiment analysis
+def analyze_sentiment(comments):
+    sentiment_scores = []
+    for comment in comments:
+        blob = TextBlob(comment)
+        sentiment_scores.append(blob.sentiment.polarity)  # +1 (positive) to -1 (negative)
+    return sentiment_scores
+
+# 🆔 STEP 2: Paste the YouTube video ID here
+video_id = 'IAbLs78HT_U'  # Example video ID (replace with your own)
+
+# 📊 STEP 3: Fetch data and process
+title, views, likes, comments_count = fetch_video_data(video_id)
+comments = fetch_comments(video_id)
+sentiment_scores = analyze_sentiment(comments)
+df = pd.DataFrame(sentiment_scores, columns=["Sentiment"])
+
+# 🖥️ STEP 4: Create Dash app
+app = dash.Dash(__name__)
+
+# 🎨 Layout for dashboard
+app.layout = html.Div([
+    html.H1(f"YouTube Video Analytics: {title}", style={'text-align': 'center'}),
+
+    html.Div([
+        html.P(f"Views: {views}", style={'font-size': '20px'}),
+        html.P(f"Likes: {likes}", style={'font-size': '20px'}),
+        html.P(f"Comments: {comments_count}", style={'font-size': '20px'}),
+    ], style={'text-align': 'center'}),
+
+    html.Div([
+        dcc.Graph(
+            id='sentiment-analysis',
+            figure={
+                'data': [
+                    go.Histogram(
+                        x=df['Sentiment'],
+                        nbinsx=20,
+                        marker=dict(color='indianred'),
+                    )
+                ],
+                'layout': go.Layout(
+                    title='Sentiment Analysis of Comments',
+                    xaxis={'title': 'Sentiment Score'},
+                    yaxis={'title': 'Number of Comments'},
+                    bargap=0.2
+                )
+            }
+        )
+    ], style={'margin': '40px'}),
+])
+
+# 🚀 STEP 5: Run the server
+if __name__ == '__main__':
+    app.run_server(debug=True)
+
+# ------------------ CODE ENDS HERE ------------------
+
+"""
+📌 HOW TO RUN THIS PROJECT:
+
+1. Make sure Python is installed
+
+2. Install required libraries:
+   pip install dash plotly pandas google-api-python-client textblob
+
+3. Download TextBlob data:
+   python -m textblob.download_corpora
+
+4. Save this file as: youtube_dashboard.py
+
+5. Run in terminal:
+   python youtube_dashboard.py
+
+6. Open your browser and go to:
+   http://127.0.0.1:8050/
+
+7. DONE! 🎉
+"""
